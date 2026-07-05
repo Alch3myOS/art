@@ -183,6 +183,9 @@ class ZygoteMap {
 class JitCodeCache {
  public:
   static constexpr size_t kMaxCapacity = 64 * MB;
+  static constexpr size_t kMaxPcRangeCacheEntries = 4096;
+
+  static size_t GetDefaultPcRangeCacheEntries();
 
   // Default initial capacity of the JIT code cache.
   static size_t GetInitialCapacity() {
@@ -435,7 +438,7 @@ class JitCodeCache {
       REQUIRES(!Locks::jit_lock_);
 
  private:
-  JitCodeCache();
+  explicit JitCodeCache(size_t pc_range_cache_entries);
 
   void AddZombieCodeInternal(ArtMethod* method, const void* code_ptr)
       REQUIRES(Locks::jit_mutator_lock_)
@@ -471,6 +474,8 @@ class JitCodeCache {
   // Free code and data allocations for `code_ptr`.
   void FreeCodeAndData(const void* code_ptr)
       REQUIRES(Locks::jit_lock_);
+
+  void ClearPcRangeCache();
 
   // Number of bytes allocated in the code cache.
   size_t CodeCacheSize() REQUIRES(!Locks::jit_lock_);
@@ -516,6 +521,7 @@ class JitCodeCache {
 
   class JniStubKey;
   class JniStubData;
+  class PcRangeCache;
 
   // Whether the GC allows accessing weaks in inline caches. Note that this
   // is not used by the concurrent collector, which uses
@@ -569,6 +575,8 @@ class JitCodeCache {
   // Zombie code and JNI methods to consider for collection.
   std::set<const void*> zombie_code_ GUARDED_BY(Locks::jit_mutator_lock_);
   std::set<ArtMethod*> zombie_jni_code_ GUARDED_BY(Locks::jit_mutator_lock_);
+
+  std::unique_ptr<PcRangeCache> pc_range_cache_;
 
   // ProfilingInfo objects we have allocated. Mutators don't need to access
   // these so this can be guarded by the JIT lock.
